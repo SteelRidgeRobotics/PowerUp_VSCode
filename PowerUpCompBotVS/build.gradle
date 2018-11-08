@@ -1,0 +1,98 @@
+plugins {
+    id "edu.wpi.first.wpilib.versioning.WPILibVersioningPlugin" version "2.2"
+    id "base"
+}
+
+configurations {
+    cppSource
+    javaSource
+}
+
+dependencies {
+    cppSource 'edu.wpi.first.wpilibc:examples:+:@zip'
+    javaSource 'edu.wpi.first.wpilibj:examples:+:@zip'
+
+    cppSource 'edu.wpi.first.wpilibc:templates:+:@zip'
+    javaSource 'edu.wpi.first.wpilibj:templates:+:@zip'
+
+    cppSource 'edu.wpi.first.wpilibc:commands:+:@zip'
+    javaSource 'edu.wpi.first.wpilibj:commands:+:@zip'
+}
+
+
+task extractCppDependencies(type: Copy) {
+    dependsOn configurations.cppSource
+
+    from {
+        configurations.cppSource.collect { it }
+        configurations.cppSource.collect { zipTree(it) }
+    }
+    into 'vscode-wpilib/resources/cpp/src'
+}
+
+task extractJavaDependencies(type: Copy) {
+    dependsOn configurations.javaSource
+
+    from {
+        configurations.javaSource.collect { zipTree(it) }
+    }
+    into 'vscode-wpilib/resources/java/src'
+}
+
+task copyFromVsCodeToStandaloneResources(type: Copy) {
+    dependsOn extractCppDependencies
+    dependsOn extractJavaDependencies
+    from ('vscode-wpilib/resources/java') {
+        into 'java'
+    }
+    from ('vscode-wpilib/resources/cpp') {
+        into 'cpp'
+    }
+    from ('vscode-wpilib/resources/gradle') {
+        into 'gradle'
+    }
+    into 'wpilib-utility-standalone/resources'
+}
+
+task copyFromVsCodeToStandaloneSrc(type: Copy) {
+    from ('vscode-wpilib/src/riolog/shared') {
+        into 'riolog/shared'
+    }
+    from ('vscode-wpilib/src/shared/generator.ts') {
+        into 'shared'
+    }
+    from ('vscode-wpilib/src/shared/permissions.ts') {
+        into 'shared'
+    }
+    into 'wpilib-utility-standalone/src'
+}
+
+task updateAllDependencies() {
+    dependsOn copyFromVsCodeToStandaloneResources
+    dependsOn copyFromVsCodeToStandaloneSrc
+}
+
+// Ensure that the WPILibVersioningPlugin is setup by setting the release type, if releaseType wasn't
+// already specified on the command line
+if (!hasProperty('releaseType')) {
+    WPILibVersion {
+        releaseType = 'dev'
+    }
+}
+
+ext.pubVersion = ''
+if (project.hasProperty("publishVersion")) {
+    pubVersion = project.publishVersion
+} else {
+    pubVersion = WPILibVersion.version
+}
+
+if (pubVersion == '') {
+    pubVersion = '0.0.1-unknown'
+}
+
+apply from: 'versions.gradle'
+
+wrapper {
+    gradleVersion = '4.9'
+}
